@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Room Monitor Dashboard</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; text-align: center; padding: 20px; }
+    h1 { font-size: 24px; margin-bottom: 20px; }
+    .values {
+      font-size: 20px; 
+      margin-bottom: 20px;
+    }
+    .charts-container {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    .chart-wrapper {
+      max-width: 400px;
+      width: 100%;
+    }
+    .chart-title {
+      font-weight: bold;
+      margin-bottom: 6px;
+      font-size: 18px;
+      color: #333;
+    }
+    canvas {
+      max-height: 200px !important;
+      height: 200px !important;
+      width: 100% !important;
+    }
+    #time {
+      font-size: 16px;
+      margin-bottom: 30px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 Room Monitor</h1>
+
+  <div class="values">
+    🌡 Temperature: <span id="temp">--</span> °C &nbsp;&nbsp; | &nbsp;&nbsp; 💧 Humidity: <span id="hum">--</span> %
+  </div>
+  <div>⏱ Timestamp: <span id="time">--</span></div>
+
+  <div class="charts-container">
+    <div class="chart-wrapper">
+      <div class="chart-title">Temperature (°C)</div>
+      <canvas id="tempChart"></canvas>
+    </div>
+    <div class="chart-wrapper">
+      <div class="chart-title">Humidity (%)</div>
+      <canvas id="humChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCHCmEo57ty3kLvZRay6BJ8Ie2PjSTnPDg",
+      authDomain: "iot-project-baw-pal.firebaseapp.com",
+      databaseURL: "https://iot-project-baw-pal-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "iot-project-baw-pal",
+      storageBucket: "iot-project-baw-pal.firebasestorage.app",
+      messagingSenderId: "845069079178",
+      appId: "1:845069079178:web:b877db653292ec2eb79373",
+      measurementId: "G-THREY0M483"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let tempData = [];
+    let humData = [];
+    let labels = [];
+
+    function formatTimestamp(ts) {
+      if (!ts) return '';
+      return ts.substr(0, 10) + ' ' + ts.substr(11, 8);
+    }
+
+    function updateLatest(data) {
+      document.getElementById("temp").textContent = data.temperature.toFixed(2);
+      document.getElementById("hum").textContent = data.humidity.toFixed(2);
+      document.getElementById("time").textContent = formatTimestamp(data.timestamp);
+    }
+
+    const ctxTemp = document.getElementById('tempChart').getContext('2d');
+    const ctxHum = document.getElementById('humChart').getContext('2d');
+
+    const commonOptions = {
+      responsive: true,
+      animation: false,
+      scales: {
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            autoSkip: true,
+            maxTicksLimit: 10
+          }
+        },
+        y: {
+          beginAtZero: false
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false }
+      }
+    };
+
+    const tempChart = new Chart(ctxTemp, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Temperature (°C)',
+          data: tempData,
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          fill: true,
+          tension: 0.2,
+          pointRadius: 0
+        }]
+      },
+      options: {
+        ...commonOptions,
+        scales: {
+          ...commonOptions.scales,
+          y: {
+            suggestedMin: 15,
+            suggestedMax: 40,
+            beginAtZero: false
+          }
+        }
+      }
+    });
+
+    const humChart = new Chart(ctxHum, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Humidity (%)',
+          data: humData,
+          borderColor: 'rgb(54, 162, 235)',
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          fill: true,
+          tension: 0.2,
+          pointRadius: 0
+        }]
+      },
+      options: {
+        ...commonOptions,
+        scales: {
+          ...commonOptions.scales,
+          y: {
+            suggestedMin: 20,
+            suggestedMax: 80,
+            beginAtZero: false
+          }
+        }
+      }
+    });
+
+    const ref = db.ref("smarthome");
+    ref.limitToLast(240).on("value", snapshot => {
+      tempData = [];
+      humData = [];
+      labels = [];
+
+      snapshot.forEach(childSnap => {
+        const data = childSnap.val();
+        if (data.temperature != null && data.humidity != null && data.timestamp) {
+          tempData.push(parseFloat(data.temperature));
+          humData.push(parseFloat(data.humidity));
+          labels.push(data.timestamp.substr(11, 5)); // HH:MM
+        }
+      });
+
+      tempChart.data.labels = labels;
+      tempChart.data.datasets[0].data = tempData;
+      tempChart.update();
+
+      humChart.data.labels = labels;
+      humChart.data.datasets[0].data = humData;
+      humChart.update();
+
+      const last = snapshot.val() ? Object.values(snapshot.val()).pop() : null;
+      if (last) updateLatest(last);
+    });
+  </script>
+</body>
+</html>
