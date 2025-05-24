@@ -20,7 +20,7 @@
       font-size: 28px; /* Slightly larger */
       margin-bottom: 25px; 
       color: #00d0ff; /* Bright blue neon-like color */
-      text-shadow: 0 0 5px #00d0ff, 0 0 10px #00d0ff, 0 0 15px #00d0ff; /* Neon glow effect */
+      text-shadow: 0 0 6px rgba(0, 208, 255, 0.7); /* Reduced neon glow effect */
     }
     .values {
       font-size: 22px; /* Slightly larger for prominence */
@@ -167,6 +167,7 @@
     // Three.js Scene Setup
     let scene, camera, renderer, requestID;
     let sun3D, moon3D, field3D, tree3DGroup, starField, dog3D; 
+    let clouds = []; // Global variable for clouds
     
     function updateSunMoonVisibility(timestamp) {
       let hour;
@@ -176,8 +177,17 @@
       } else { hour = new Date().getHours(); }
 
       if (sun3D && moon3D) {
-        if (hour >= 6 && hour < 18) { sun3D.visible = true; moon3D.visible = false; } 
-        else { sun3D.visible = false; moon3D.visible = true; }
+        if (hour >= 6 && hour < 18) { // Daytime
+          sun3D.visible = true; 
+          moon3D.visible = false; 
+          if (scene) scene.background = new THREE.Color(0x87CEEB); // Sky Blue
+          if (clouds && clouds.length > 0) clouds.forEach(cloud => cloud.visible = true);
+        } else { // Nighttime
+          sun3D.visible = false; 
+          moon3D.visible = true; 
+          if (scene) scene.background = new THREE.Color(0x000000); // Black
+          if (clouds && clouds.length > 0) clouds.forEach(cloud => cloud.visible = false);
+        }
       }
     }
 
@@ -227,7 +237,7 @@
       directionalLight.position.set(5, 10, 7.5);
       scene.add(directionalLight);
       
-      const sunGeometry = new THREE.SphereGeometry(1.0, 32, 32); // New radius: 1.0
+      const sunGeometry = new THREE.SphereGeometry(1.0, 32, 32); 
       const sunMaterial = new THREE.MeshStandardMaterial({ color: 0xffdd00, emissive: 0xffdd00, emissiveIntensity: 1 });
       sun3D = new THREE.Mesh(sunGeometry, sunMaterial);
       sun3D.position.set(-5, 4, -6); 
@@ -268,24 +278,20 @@
       tree3DGroup.position.set(0, -1.0, 0); 
       scene.add(tree3DGroup);
       
-      // Enhanced Dog Model
       dog3D = new THREE.Group();
-      const dogBodyGeometry = new THREE.BoxGeometry(0.8, 0.4, 0.5, 2, 2, 2); // Added segments
-      const dogBodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Brown
+      const dogBodyGeometry = new THREE.BoxGeometry(0.8, 0.4, 0.5, 2, 2, 2); 
+      const dogBodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); 
       const dogBody = new THREE.Mesh(dogBodyGeometry, dogBodyMaterial);
       dogBody.name = "dogBody";
       dog3D.add(dogBody);
-
-      const dogHeadGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3, 2, 2, 2); // Added segments
-      const dogHeadMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Same brown as body
+      const dogHeadGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3, 2, 2, 2); 
+      const dogHeadMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); 
       const dogHead = new THREE.Mesh(dogHeadGeometry, dogHeadMaterial);
       dogHead.name = "dogHead";
-      dogHead.position.set(0.35, 0.25, 0); // Adjusted slightly forward and up from body center
+      dogHead.position.set(0.35, 0.25, 0); 
       dog3D.add(dogHead);
-
-      const legGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.1, 2, 2, 2); // Added segments
-      const legMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 }); // Darker Brown
-      
+      const legGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.1, 2, 2, 2); 
+      const legMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 }); 
       const leg1 = new THREE.Mesh(legGeometry, legMaterial); 
       leg1.position.set(0.3, -0.25, 0.15); 
       dog3D.add(leg1);
@@ -298,29 +304,23 @@
       const leg4 = new THREE.Mesh(legGeometry, legMaterial.clone()); 
       leg4.position.set(-0.3, -0.25, -0.15);
       dog3D.add(leg4);
-
-      // Ears
       const earGeometry = new THREE.BoxGeometry(0.05, 0.15, 0.1); 
-      const earMaterial = legMaterial.clone(); // Use leg material for ears
+      const earMaterial = legMaterial.clone(); 
       const leftEar = new THREE.Mesh(earGeometry, earMaterial);
-      leftEar.position.set(0, 0.15, 0.1); // Relative to head center
+      leftEar.position.set(0, 0.15, 0.1); 
       leftEar.rotation.z = Math.PI / 8;
-      dogHead.add(leftEar); // Add to head
-
+      dogHead.add(leftEar); 
       const rightEar = new THREE.Mesh(earGeometry, earMaterial.clone());
-      rightEar.position.set(0, 0.15, -0.1); // Relative to head center
+      rightEar.position.set(0, 0.15, -0.1); 
       rightEar.rotation.z = -Math.PI / 8;
-      dogHead.add(rightEar); // Add to head
-
-      // Tail
+      dogHead.add(rightEar); 
       const tailGeometry = new THREE.BoxGeometry(0.08, 0.08, 0.3);
-      const tailMaterial = dogBodyMaterial.clone(); // Use body material for tail
+      const tailMaterial = dogBodyMaterial.clone(); 
       const dogTail = new THREE.Mesh(tailGeometry, tailMaterial);
       dogTail.name = "dogTail";
-      dogTail.position.set(-0.45, 0.1, 0); // Relative to body center (group origin)
+      dogTail.position.set(-0.45, 0.1, 0); 
       dogTail.rotation.x = -Math.PI / 6; 
       dog3D.add(dogTail);
-
       dog3D.userData.originalMaterialColor = dogBodyMaterial.color.getHex();
       scene.add(dog3D);
 
@@ -346,11 +346,57 @@
       starField = new THREE.Points(starsGeometry, starsMaterial);
       scene.add(starField);
 
+      // Clouds
+      const cloudTextureBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAABkCAYAAADDhn8LAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAyKADAAQAAAABAAAAZAAAAACfpZ10AAAFJElEQVR4AezaBYLlRhBGYXgBEBBxAREQcRERkP8+073TOzP7MqaEEJnxImbV7K7uqr+qLgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACA0jSNozCO4ziOIxACAAFECOGcpnlJkqZp2rZtWZbned73fY/neZ7nERTGIAgAy7Isy3me50kSAEAQBEEQBEEQBEHned73fd+2bVuWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWZVmWVVVVX/qgAAAABJRU5ErkJggg==";
+      const cloudTexture = new THREE.TextureLoader().load(cloudTextureBase64);
+      const cloudMaterial = new THREE.MeshBasicMaterial({ map: cloudTexture, transparent: true, opacity: 0.85, depthWrite: false });
+      const cloudGeometry = new THREE.PlaneGeometry(3, 1.5);
+
+      const cloud1 = new THREE.Mesh(cloudGeometry, cloudMaterial);
+      cloud1.position.set(-4, 3.5, -7); 
+      cloud1.visible = false;
+      clouds.push(cloud1);
+      scene.add(cloud1);
+
+      const cloud2 = new THREE.Mesh(cloudGeometry, cloudMaterial.clone()); // Clone material for independent opacity/texture control if needed later
+      cloud2.position.set(0, 4.0, -8); 
+      cloud2.visible = false;
+      clouds.push(cloud2);
+      scene.add(cloud2);
+
+      const cloud3 = new THREE.Mesh(cloudGeometry, cloudMaterial.clone());
+      cloud3.position.set(5, 3.8, -9); 
+      cloud3.visible = false;
+      clouds.push(cloud3);
+      scene.add(cloud3);
+      
+      const cloud4 = new THREE.Mesh(cloudGeometry, cloudMaterial.clone());
+      cloud4.position.set(-2, 4.2, -6); 
+      cloud4.visible = false;
+      clouds.push(cloud4);
+      scene.add(cloud4);
+
       window.addEventListener('resize', onWindowResize, false);
     }
 
     function animate() {
       requestID = requestAnimationFrame(animate);
+
+      // Animate clouds
+      if (clouds && clouds.length > 0) {
+        clouds.forEach(cloud => {
+          if (cloud.visible) { // Only animate visible clouds
+            cloud.position.x += 0.003; // Adjust speed as needed
+            // Reset cloud position if it moves too far to one side
+            if (cloud.position.x > 8) { // Adjust reset boundary as needed
+              cloud.position.x = -8; // Reset to the other side
+              // Optional: vary Y position slightly when reset for more randomness
+              cloud.position.y = 3 + Math.random() * 1.5; 
+            }
+          }
+        });
+      }
+
       renderer.render(scene, camera);
     }
 
