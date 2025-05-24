@@ -166,9 +166,8 @@
 
     // Three.js Scene Setup
     let scene, camera, renderer, requestID;
-    let sun3D, moon3D, field3D, tree3DGroup, bird3D, starField, dog3D; 
-    let cone3Geometry; 
-
+    let sun3D, moon3D, field3D, tree3DGroup, starField, dog3D; 
+    
     function updateSunMoonVisibility(timestamp) {
       let hour;
       if (timestamp) {
@@ -182,51 +181,29 @@
       }
     }
 
-    function updateBirdState(temperature, humidity, isDaytime) { 
-      if (!bird3D || !bird3D.userData.originalMaterial || !tree3DGroup || !cone3Geometry) {
-        return;
-      }
-      bird3D.visible = true; 
-      const birdBodyMesh = bird3D.getObjectByName("birdBody");
-      if (!birdBodyMesh) return; 
-
-      if (isDaytime) {
-        bird3D.position.set(0, 1, -1); 
-        bird3D.rotation.set(0, 0, 0); 
-      } else { 
-        const birdBodyRadius = birdBodyMesh.geometry.parameters.radius || 0.2;
-        const cone3Mesh = tree3DGroup.children.find(child => child.geometry === cone3Geometry); 
-        if (cone3Mesh) {
-            const pineTopY = tree3DGroup.position.y + cone3Mesh.position.y + (cone3Mesh.geometry.parameters.height / 2);
-            bird3D.position.set(
-              tree3DGroup.position.x, 
-              pineTopY + birdBodyRadius, 
-              tree3DGroup.position.z
-            );
-        } else { 
-            bird3D.position.set(tree3DGroup.position.x, tree3DGroup.position.y + 1.6 + 0.3 + birdBodyRadius, tree3DGroup.position.z);
-        }
-      }
-
-      if (temperature > 28) { 
-        birdBodyMesh.material.color.setHex(0x333333); 
-        birdBodyMesh.material.metalness = 0.7; 
-        birdBodyMesh.material.roughness = 0.3; 
-      } else { 
-        birdBodyMesh.material.color.setHex(bird3D.userData.originalMaterial.color);
-        birdBodyMesh.material.metalness = bird3D.userData.originalMaterial.metalness;
-        birdBodyMesh.material.roughness = bird3D.userData.originalMaterial.roughness;
-      }
-    }
-
-    function updateDogState(temperature) {
+    function updateDogState(temperature, isDaytime) {
       if (!dog3D || !dog3D.userData.originalMaterialColor) return;
       const dogBodyMesh = dog3D.getObjectByName("dogBody");
       if (!dogBodyMesh) return;
 
-      if (temperature > 28) { // Hot condition
-        dogBodyMesh.material.color.setHex(0xFF0000); // Change to Red
-      } else { // Normal condition
+      const activePosition = { x: -1.5, y: -0.5, z: 1 };
+      const activeRotation = { x: 0, y: 0, z: 0 };
+      
+      const sleepingPositionY = -1.0 + (dogBodyMesh.geometry.parameters.width / 2); 
+      const sleepingPosition = { x: 0.5, y: sleepingPositionY, z: 0.5 }; 
+      const sleepingRotation = { x: 0, y: -Math.PI / 4, z: Math.PI / 2 }; 
+
+      if (isDaytime) {
+        dog3D.position.set(activePosition.x, activePosition.y, activePosition.z);
+        dog3D.rotation.set(activeRotation.x, activeRotation.y, activeRotation.z);
+      } else { 
+        dog3D.position.set(sleepingPosition.x, sleepingPosition.y, sleepingPosition.z);
+        dog3D.rotation.set(sleepingRotation.x, sleepingRotation.y, sleepingRotation.z);
+      }
+
+      if (temperature > 28) { 
+        dogBodyMesh.material.color.setHex(0xFF0000); 
+      } else { 
         dogBodyMesh.material.color.setHex(dog3D.userData.originalMaterialColor);
       }
     }
@@ -250,18 +227,16 @@
       directionalLight.position.set(5, 10, 7.5);
       scene.add(directionalLight);
       
-      // Sun Model - Updated Size & Position
-      const sunGeometry = new THREE.SphereGeometry(1.25, 32, 32); // Radius 0.5 * 2.5 = 1.25
+      const sunGeometry = new THREE.SphereGeometry(1.0, 32, 32); // New radius: 1.0
       const sunMaterial = new THREE.MeshStandardMaterial({ color: 0xffdd00, emissive: 0xffdd00, emissiveIntensity: 1 });
       sun3D = new THREE.Mesh(sunGeometry, sunMaterial);
-      sun3D.position.set(-5, 4, -6); // New position
+      sun3D.position.set(-5, 4, -6); 
       scene.add(sun3D);
 
-      // Moon Model - Updated Size & Position
-      const moonGeometry = new THREE.SphereGeometry(0.75, 32, 32); // Radius 0.3 * 2.5 = 0.75
+      const moonGeometry = new THREE.SphereGeometry(0.75, 32, 32); 
       const moonMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
       moon3D = new THREE.Mesh(moonGeometry, moonMaterial);
-      moon3D.position.set(5, 4, -6); // New position
+      moon3D.position.set(5, 4, -6); 
       scene.add(moon3D);
 
       const fieldGeometry = new THREE.PlaneGeometry(10, 10);
@@ -286,61 +261,67 @@
       const cone2 = new THREE.Mesh(cone2Geometry, pineLeavesMaterial);
       cone2.position.y = cone1.position.y + (1.0 / 2) - 0.2; 
       tree3DGroup.add(cone2);
-      cone3Geometry = new THREE.ConeGeometry(0.3, 0.6, 16);
-      const cone3 = new THREE.Mesh(cone3Geometry, pineLeavesMaterial);
+      const localCone3Geometry = new THREE.ConeGeometry(0.3, 0.6, 16);
+      const cone3 = new THREE.Mesh(localCone3Geometry, pineLeavesMaterial);
       cone3.position.y = cone2.position.y + (0.8 / 2) - 0.1; 
       tree3DGroup.add(cone3);
       tree3DGroup.position.set(0, -1.0, 0); 
       scene.add(tree3DGroup);
-
-      bird3D = new THREE.Group();
-      const birdBodyGeom = new THREE.SphereGeometry(0.2, 16, 16);
-      const birdBodyMat = new THREE.MeshStandardMaterial({ color: 0x6495ED, metalness: 0.1, roughness: 0.8 });
-      const birdBody = new THREE.Mesh(birdBodyGeom, birdBodyMat);
-      birdBody.name = "birdBody"; 
-      bird3D.add(birdBody);
-      const birdHeadGeom = new THREE.SphereGeometry(0.12, 16, 16);
-      const birdHead = new THREE.Mesh(birdHeadGeom, birdBodyMat.clone()); 
-      birdHead.name = "birdHead"; 
-      birdHead.position.set(0, 0.2, 0.05); 
-      bird3D.add(birdHead);
-      bird3D.userData.originalMaterial = {
-          color: birdBodyMat.color.getHex(),
-          metalness: birdBodyMat.metalness,
-          roughness: birdBodyMat.roughness
-      };
-      bird3D.position.set(0, 1, -1); 
-      bird3D.visible = false; 
-      scene.add(bird3D); 
-
+      
+      // Enhanced Dog Model
       dog3D = new THREE.Group();
-      const dogBodyGeometry = new THREE.BoxGeometry(0.8, 0.4, 0.5); 
-      const dogBodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); 
+      const dogBodyGeometry = new THREE.BoxGeometry(0.8, 0.4, 0.5, 2, 2, 2); // Added segments
+      const dogBodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Brown
       const dogBody = new THREE.Mesh(dogBodyGeometry, dogBodyMaterial);
       dogBody.name = "dogBody";
       dog3D.add(dogBody);
-      const dogHeadGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
-      const dogHeadMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); 
+
+      const dogHeadGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3, 2, 2, 2); // Added segments
+      const dogHeadMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Same brown as body
       const dogHead = new THREE.Mesh(dogHeadGeometry, dogHeadMaterial);
       dogHead.name = "dogHead";
-      dogHead.position.set(0.5, 0.2, 0); 
+      dogHead.position.set(0.35, 0.25, 0); // Adjusted slightly forward and up from body center
       dog3D.add(dogHead);
-      const legGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.1);
-      const legMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 }); 
+
+      const legGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.1, 2, 2, 2); // Added segments
+      const legMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 }); // Darker Brown
+      
       const leg1 = new THREE.Mesh(legGeometry, legMaterial); 
       leg1.position.set(0.3, -0.25, 0.15); 
       dog3D.add(leg1);
-      const leg2 = new THREE.Mesh(legGeometry, legMaterial); 
+      const leg2 = new THREE.Mesh(legGeometry, legMaterial.clone()); 
       leg2.position.set(0.3, -0.25, -0.15);
       dog3D.add(leg2);
-      const leg3 = new THREE.Mesh(legGeometry, legMaterial); 
+      const leg3 = new THREE.Mesh(legGeometry, legMaterial.clone()); 
       leg3.position.set(-0.3, -0.25, 0.15);
       dog3D.add(leg3);
-      const leg4 = new THREE.Mesh(legGeometry, legMaterial); 
+      const leg4 = new THREE.Mesh(legGeometry, legMaterial.clone()); 
       leg4.position.set(-0.3, -0.25, -0.15);
       dog3D.add(leg4);
+
+      // Ears
+      const earGeometry = new THREE.BoxGeometry(0.05, 0.15, 0.1); 
+      const earMaterial = legMaterial.clone(); // Use leg material for ears
+      const leftEar = new THREE.Mesh(earGeometry, earMaterial);
+      leftEar.position.set(0, 0.15, 0.1); // Relative to head center
+      leftEar.rotation.z = Math.PI / 8;
+      dogHead.add(leftEar); // Add to head
+
+      const rightEar = new THREE.Mesh(earGeometry, earMaterial.clone());
+      rightEar.position.set(0, 0.15, -0.1); // Relative to head center
+      rightEar.rotation.z = -Math.PI / 8;
+      dogHead.add(rightEar); // Add to head
+
+      // Tail
+      const tailGeometry = new THREE.BoxGeometry(0.08, 0.08, 0.3);
+      const tailMaterial = dogBodyMaterial.clone(); // Use body material for tail
+      const dogTail = new THREE.Mesh(tailGeometry, tailMaterial);
+      dogTail.name = "dogTail";
+      dogTail.position.set(-0.45, 0.1, 0); // Relative to body center (group origin)
+      dogTail.rotation.x = -Math.PI / 6; 
+      dog3D.add(dogTail);
+
       dog3D.userData.originalMaterialColor = dogBodyMaterial.color.getHex();
-      dog3D.position.set(-1.5, -0.6, 1); 
       scene.add(dog3D);
 
       // Starfield
@@ -389,8 +370,7 @@
             updateSunMoonVisibility(new Date().toISOString()); 
             const currentHour = new Date().getHours();
             const isDay = (currentHour >= 6 && currentHour < 18);
-            updateBirdState(15, 50, isDay); 
-            updateDogState(15); 
+            updateDogState(15, isDay); 
         }
     }
 
@@ -413,24 +393,20 @@
         const currentTimestamp = last.timestamp ? last.timestamp : new Date().toISOString();
         updateSunMoonVisibility(currentTimestamp);
 
-        let currentHourForBird;
+        let currentHourForDog; 
         if (last.timestamp) {
             const timePart = last.timestamp.includes('T') ? last.timestamp.split('T')[1] : last.timestamp.split(' ')[1];
-            if (timePart) currentHourForBird = parseInt(timePart.substr(0, 2));
-            else currentHourForBird = new Date().getHours(); 
+            if (timePart) currentHourForDog = parseInt(timePart.substr(0, 2));
+            else currentHourForDog = new Date().getHours(); 
         } else {
-            currentHourForBird = new Date().getHours(); 
+            currentHourForDog = new Date().getHours(); 
         }
-        const isDaytimeForBird = (currentHourForBird >= 6 && currentHourForBird < 18);
+        const isDaytimeForDog = (currentHourForDog >= 6 && currentHourForDog < 18); 
         
-        const tempForBirdAndDog = (last.temperature != null) ? parseFloat(last.temperature) : 15; 
-        const humForBird = (last.humidity != null) ? parseFloat(last.humidity) : 50; 
-
-        if (!isNaN(tempForBirdAndDog) && !isNaN(humForBird)) {
-            updateBirdState(tempForBirdAndDog, humForBird, isDaytimeForBird);
-        }
-        if (!isNaN(tempForBirdAndDog)) {
-            updateDogState(tempForBirdAndDog);
+        const tempForDog = (last.temperature != null) ? parseFloat(last.temperature) : 15; 
+        
+        if (!isNaN(tempForDog)) {
+            updateDogState(tempForDog, isDaytimeForDog); 
         }
 
       } else { 
@@ -443,8 +419,7 @@
         
         const currentHour = new Date().getHours();
         const isDay = (currentHour >= 6 && currentHour < 18);
-        updateBirdState(15, 50, isDay); 
-        updateDogState(15); 
+        updateDogState(15, isDay); 
       }
     });
   </script>
