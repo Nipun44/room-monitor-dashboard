@@ -166,7 +166,8 @@
 
     // Three.js Scene Setup
     let scene, camera, renderer, requestID;
-    let sun3D, moon3D, field3D, tree3DGroup, bird3D; 
+    let sun3D, moon3D, field3D, tree3DGroup, bird3D, starField; 
+    let cone3Geometry; // Make cone3Geometry accessible for bird positioning
 
     function updateSunMoonVisibility(timestamp) {
       let hour;
@@ -181,29 +182,34 @@
       }
     }
 
-    function updateBirdState(temperature, humidity, isDaytime) {
-      if (!bird3D || !bird3D.userData.originalMaterial) { // Check if bird and its original material data exist
-        // console.warn("Bird3D or its original material not yet initialized for state update.");
+    function updateBirdState(temperature, humidity, isDaytime) { 
+      if (!bird3D || !bird3D.userData.originalMaterial || !tree3DGroup || !cone3Geometry) { // Added check for cone3Geometry
         return;
       }
-
-      const isVisible = isDaytime && 
-                        temperature > 10 && temperature < 30 &&
-                        humidity <= 80; 
-      bird3D.visible = isVisible;
-
-      if (isVisible) {
-        if (temperature > 28) { // Sweating condition
-          bird3D.material.color.setHex(0x333333); // Darker
-          bird3D.material.metalness = 0.7; 
-          bird3D.material.roughness = 0.3; 
-        } else { // Not sweating, revert to original
-          bird3D.material.color.setHex(bird3D.userData.originalMaterial.color);
-          bird3D.material.metalness = bird3D.userData.originalMaterial.metalness;
-          bird3D.material.roughness = bird3D.userData.originalMaterial.roughness;
+      bird3D.visible = true; 
+      if (isDaytime) {
+        bird3D.position.set(0, 1, -1); 
+        bird3D.rotation.set(0, 0, 0); 
+      } else { 
+        const birdRadius = bird3D.geometry.parameters.radius || 0.15; 
+        // Find cone3 mesh within tree3DGroup to get its world position if needed, or use relative calcs
+        const cone3Mesh = tree3DGroup.children.find(child => child.geometry === cone3Geometry); // Assuming cone3Geometry is unique to cone3
+        if (cone3Mesh) {
+            const pineTopY = tree3DGroup.position.y + cone3Mesh.position.y + (cone3Mesh.geometry.parameters.height / 2);
+            bird3D.position.set(
+              tree3DGroup.position.x, 
+              pineTopY + birdRadius, 
+              tree3DGroup.position.z
+            );
+        } else { // Fallback if cone3 not found, less accurate
+            bird3D.position.set(tree3DGroup.position.x, tree3DGroup.position.y + 1.6 + 0.3 + birdRadius, tree3DGroup.position.z);
         }
-      } else {
-        // Ensure material is reset if bird becomes not visible
+      }
+      if (temperature > 28) { 
+        bird3D.material.color.setHex(0x333333); 
+        bird3D.material.metalness = 0.7; 
+        bird3D.material.roughness = 0.3; 
+      } else { 
         bird3D.material.color.setHex(bird3D.userData.originalMaterial.color);
         bird3D.material.metalness = bird3D.userData.originalMaterial.metalness;
         bird3D.material.roughness = bird3D.userData.originalMaterial.roughness;
@@ -249,38 +255,68 @@
       scene.add(field3D);
 
       tree3DGroup = new THREE.Group();
-      const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.15, 1, 16);
+      const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.15, 1, 16); // Trunk height 1
       const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
       const trunk3D = new THREE.Mesh(trunkGeometry, trunkMaterial);
-      trunk3D.position.y = 0; 
+      trunk3D.position.y = 0; // Base of trunk at group's y=0
       tree3DGroup.add(trunk3D);
-      const leavesGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-      const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x006400 });
-      const leaves3D = new THREE.Mesh(leavesGeometry, leavesMaterial);
-      leaves3D.position.y = 0.5 + 0.25; 
-      tree3DGroup.add(leaves3D);
-      tree3DGroup.position.set(0, -0.5, 0); 
+
+      const pineLeavesMaterial = new THREE.MeshStandardMaterial({ color: 0x004d00 }); // Darker green for pine
+
+      // Cone 1 (Bottom)
+      const cone1Geometry = new THREE.ConeGeometry(0.6, 1.0, 16);
+      const cone1 = new THREE.Mesh(cone1Geometry, pineLeavesMaterial);
+      cone1.position.y = 0.5 + (1.0 / 2); // Trunk top is at y=0.5 (group relative), cone center is height/2 above its base
+      tree3DGroup.add(cone1);
+
+      // Cone 2 (Middle)
+      const cone2Geometry = new THREE.ConeGeometry(0.45, 0.8, 16);
+      const cone2 = new THREE.Mesh(cone2Geometry, pineLeavesMaterial);
+      cone2.position.y = cone1.position.y + (1.0 / 2) - 0.2; // Stack on cone1, slight overlap
+      tree3DGroup.add(cone2);
+
+      // Cone 3 (Top) - store its geometry for bird positioning
+      cone3Geometry = new THREE.ConeGeometry(0.3, 0.6, 16);
+      const cone3 = new THREE.Mesh(cone3Geometry, pineLeavesMaterial);
+      cone3.position.y = cone2.position.y + (0.8 / 2) - 0.1; // Stack on cone2, slight overlap
+      tree3DGroup.add(cone3);
+      
+      tree3DGroup.position.set(0, -1.0, 0); // Places base of trunk on field (y=-1)
       scene.add(tree3DGroup);
 
-      // Bird Model
       const birdGeometry = new THREE.SphereGeometry(0.15, 16, 16);
-      // Initial material properties for the bird
       const birdMaterial = new THREE.MeshStandardMaterial({ 
-          color: 0x555555,      // Grey
-          metalness: 0.1,      // Slightly metallic
-          roughness: 0.8       // Quite rough
+          color: 0x555555, metalness: 0.1, roughness: 0.8
       });
       bird3D = new THREE.Mesh(birdGeometry, birdMaterial);
-      bird3D.position.set(0, 1, -1); 
-      bird3D.visible = false; 
-
-      // Store original material properties
       bird3D.userData.originalMaterial = {
           color: birdMaterial.color.getHex(),
           metalness: birdMaterial.metalness,
           roughness: birdMaterial.roughness
       };
-      scene.add(bird3D);
+      scene.add(bird3D); 
+
+      // Starfield
+      const starVertices = [];
+      const minDistance = 50; 
+      const starCount = 1000;
+      for (let i = 0; i < starCount; i++) {
+          let x, y, z, dist;
+          do {
+              x = THREE.MathUtils.randFloatSpread(200); 
+              y = THREE.MathUtils.randFloatSpread(200);
+              z = THREE.MathUtils.randFloatSpread(200);
+              dist = Math.sqrt(x*x + y*y + z*z);
+          } while (dist < minDistance);
+          starVertices.push(x, y, z);
+      }
+      const starsGeometry = new THREE.BufferGeometry();
+      starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+      const starsMaterial = new THREE.PointsMaterial({ 
+          color: 0xffffff, size: 0.15, sizeAttenuation: true 
+      });
+      starField = new THREE.Points(starsGeometry, starsMaterial);
+      scene.add(starField);
 
       window.addEventListener('resize', onWindowResize, false);
     }
