@@ -77,10 +77,139 @@
       margin-bottom: 30px;
       display: block;
     }
+
+    /* Dynamic Scene Styles */
+    #dynamic-scene {
+      position: relative;
+      width: 50%; /* Responsive width */
+      max-width: 350px; /* Max width to prevent it from becoming too large */
+      height: 200px;
+      margin: 30px auto; /* Increased top margin */
+      border: 1px solid #00d0ff;
+      border-radius: 8px;
+      overflow: hidden;
+      background-color: #0f1a3a; /* Default background, darker than sky */
+    }
+
+    #sky {
+      width: 100%;
+      height: 60%; /* Sky takes up 60% of the scene height */
+      background-color: #87CEEB; /* Daytime sky blue */
+      position: relative; /* For absolute positioning of sun/moon within */
+      transition: background-color 1s ease-in-out; /* For day/night transition */
+    }
+
+    #sun {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background-color: #FFD700; /* Gold */
+      border-radius: 50%;
+      top: 15%; /* Adjusted position */
+      left: 15%; /* Adjusted position */
+      transition: top 1s ease-in-out, left 1s ease-in-out, opacity 1s ease-in-out; /* Smooth transitions */
+    }
+
+    #moon {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background-color: #F0E68C; /* Khaki */
+      border-radius: 50%;
+      top: 20%; /* Adjusted position */
+      left: 20%; /* Adjusted position */
+      display: none; /* Initially hidden */
+      box-shadow: 0 0 10px #F0E68C, 0 0 15px #F0E68C; /* Moon glow */
+      transition: top 1s ease-in-out, left 1s ease-in-out, opacity 1s ease-in-out; /* Smooth transitions */
+    }
+
+    #field {
+      width: 100%;
+      height: 40%; /* Field takes up remaining 40% */
+      background-color: #228B22; /* Forest Green */
+      position: relative; /* For tree positioning */
+      transition: background-color 0.5s ease, filter 0.5s ease; /* Added filter transition */
+    }
+
+    #tree {
+      width: 15px; /* Thinner trunk */
+      height: 45px; /* Shorter trunk */
+      background-color: #8B4513; /* Saddle Brown */
+      position: absolute;
+      bottom: 0; /* Sits directly on the bottom of the #field */
+      left: 70%; /* Positioned to the right */
+      transform: translateX(-50%);
+      transition: filter 0.5s ease; /* Added filter transition */
+    }
+    /* Simple leaves for the tree */
+    #tree::before {
+      content: '';
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background-color: #006400; /* Dark Green */
+      border-radius: 50%;
+      top: -30px; /* Position above the trunk */
+      left: 50%;
+      transform: translateX(-50%);
+      transition: filter 0.5s ease; /* Added filter transition for leaves */
+    }
+
+    .dewy-look {
+      filter: brightness(0.9) saturate(1.2); 
+    }
+    .dry-look {
+      filter: saturate(0.8) brightness(1.1);
+    }
+
+    #bird {
+      width: 12px;
+      height: 8px;
+      background-color: #444444; /* Dark grey bird */
+      position: absolute;
+      top: 25%;
+      left: -20px; /* Start off-screen */
+      border-radius: 40% 40% 10px 10px; /* More bird-like shape */
+      display: block; 
+      opacity: 0; /* Initially hidden */
+      transform: translateX(-20px); /* Start off-screen to the left */
+      /* Simplified transition for appearing/disappearing */
+      transition: opacity 0.5s ease, transform 0.5s ease; 
+    }
+    /* Bird wing - pseudo element */
+    #bird::after {
+        content: '';
+        position: absolute;
+        width: 6px;
+        height: 10px; /* Slightly taller wing */
+        background-color: #555555; /* Slightly lighter wing */
+        border-radius: 50% 0;
+        top: -3px; /* Adjust to connect to body */
+        left: 3px;
+        transform-origin: bottom left;
+        /* animation: flapWing 0.3s infinite alternate; */ /* Future animation */
+    }
+
+    /* Keyframes for potential animations (e.g., wing flapping) */
+    /* @keyframes flapWing {
+        from { transform: rotate(-10deg); }
+        to { transform: rotate(10deg); }
+    } */
+
   </style>
 </head>
 <body>
   <h1>📊 Room Monitor</h1>
+
+  <div id="dynamic-scene">
+    <div id="sky">
+      <div id="sun"></div>
+      <div id="moon"></div>
+    </div>
+    <div id="field"></div>
+    <div id="tree"></div> <!-- Will be styled with CSS, or could be an img later -->
+    <div id="bird"></div> <!-- Will be styled with CSS, or could be an img later -->
+  </div>
 
   <div class="values">
     🌡 Temperature: <span id="temp">--</span> °C &nbsp;&nbsp; | &nbsp;&nbsp; 💧 Humidity: <span id="hum">--</span> %
@@ -127,6 +256,130 @@
       document.getElementById("hum").textContent = data.humidity.toFixed(2);
       document.getElementById("time-value").textContent = formatTimestamp(data.timestamp); // Update time value span
     }
+
+    function updateSunMoonVisibility(timestamp) {
+      const sunEl = document.getElementById('sun');
+      const moonEl = document.getElementById('moon');
+      let hour;
+
+      if (timestamp) {
+        // Assuming timestamp is in "YYYY-MM-DD HH:MM:SS" format from Firebase,
+        // or a full ISO string if from new Date().toISOString()
+        const timePart = timestamp.includes('T') ? timestamp.split('T')[1] : timestamp.split(' ')[1];
+        if (timePart) {
+          hour = parseInt(timePart.substr(0, 2));
+        } else {
+          // Fallback if time part is not as expected
+          hour = new Date().getHours(); 
+        }
+      } else {
+        // Default to current browser time if no timestamp is provided
+        hour = new Date().getHours();
+      }
+
+      // Ensure elements are found before trying to set style
+      if (!sunEl || !moonEl) {
+        console.error("Sun or Moon element not found");
+        return;
+      }
+
+      if (hour >= 6 && hour < 18) { // Daytime: 6 AM to 5:59 PM
+        sunEl.style.display = 'block';
+        sunEl.style.opacity = '1';
+        moonEl.style.display = 'none';
+        moonEl.style.opacity = '0';
+      } else { // Nighttime
+        sunEl.style.display = 'none';
+        sunEl.style.opacity = '0';
+        moonEl.style.display = 'block';
+        moonEl.style.opacity = '1';
+      }
+    }
+
+    function updateBirdState(temperature, humidity, isDaytime) {
+      const birdEl = document.getElementById('bird');
+      if (!birdEl) {
+        console.error("Bird element not found.");
+        return;
+      }
+
+      // Conditions for bird visibility
+      // Pleasant temperature, not too humid, and daytime
+      const isVisible = isDaytime && 
+                        temperature > 10 && temperature < 30 && 
+                        humidity <= 80;
+
+      if (isVisible) {
+        birdEl.style.opacity = '1';
+        // Bring it into view, slightly to the right from its initial -20px.
+        // Actual flight animation 'left' property is handled by a separate mechanism if needed.
+        // For now, this just makes it appear at a starting visible spot.
+        birdEl.style.transform = 'translateX(0px)'; 
+      } else {
+        birdEl.style.opacity = '0';
+        birdEl.style.transform = 'translateX(-20px)'; // Ensure it's off-screen
+      }
+    }
+
+    function updateTemperatureEffects(temperature) {
+      const skyEl = document.getElementById('sky');
+      const fieldEl = document.getElementById('field');
+
+      if (!skyEl || !fieldEl) {
+        console.error("Sky or Field element not found for temperature effects.");
+        return;
+      }
+
+      // Sky Color Logic
+      if (temperature < 5) {
+        skyEl.style.backgroundColor = '#B0E0E6'; // Powder Blue (cool)
+      } else if (temperature > 25) {
+        skyEl.style.backgroundColor = '#FFDEAD'; // Navajo White (warm haze)
+      } else {
+        skyEl.style.backgroundColor = '#87CEEB'; // Default Sky Blue
+      }
+
+      // Field Color Logic
+      if (temperature < 0) {
+        fieldEl.style.backgroundColor = '#90EE90'; // Light Green (frosty look)
+      } else if (temperature > 30) {
+        fieldEl.style.backgroundColor = '#9ACD32'; // YellowGreen (parched look)
+      } else {
+        fieldEl.style.backgroundColor = '#228B22'; // Default Forest Green
+      }
+    }
+
+    function updateHumidityEffects(humidity) {
+      const treeEl = document.getElementById('tree');
+      const fieldEl = document.getElementById('field');
+      // Note: #tree::before (leaves) will also be affected if #tree has the class,
+      // due to filter inheritance or by applying class to #tree.
+      // If more specific control is needed for pseudo-elements, it's more complex.
+      // For now, applying to treeEl should suffice for its ::before due to filter inheritance.
+
+      if (!treeEl || !fieldEl) {
+        console.error("Tree or Field element not found for humidity effects.");
+        return;
+      }
+
+      if (humidity > 75) { // Dewy condition
+        treeEl.classList.add('dewy-look');
+        treeEl.classList.remove('dry-look');
+        fieldEl.classList.add('dewy-look');
+        fieldEl.classList.remove('dry-look');
+      } else if (humidity < 30) { // Dry condition
+        treeEl.classList.add('dry-look');
+        treeEl.classList.remove('dewy-look');
+        fieldEl.classList.add('dry-look');
+        fieldEl.classList.remove('dewy-look');
+      } else { // Normal condition
+        treeEl.classList.remove('dewy-look');
+        treeEl.classList.remove('dry-look');
+        fieldEl.classList.remove('dewy-look');
+        fieldEl.classList.remove('dry-look');
+      }
+    }
+
 
     const ctxTemp = document.getElementById('tempChart').getContext('2d');
     const ctxHum = document.getElementById('humChart').getContext('2d');
@@ -232,6 +485,9 @@
       }
     });
 
+    // Initial call to set sun/moon based on current browser time
+    updateSunMoonVisibility(new Date().toISOString());
+
     const ref = db.ref("smarthome");
     ref.limitToLast(240).on("value", snapshot => {
       tempData = [];
@@ -256,11 +512,55 @@
       humChart.update();
 
       const last = snapshot.val() ? Object.values(snapshot.val()).pop() : null;
-      if (last) updateLatest(last);
-      else { // Handle case where there's no data yet
+      if (last) {
+        updateLatest(last);
+        if (last.timestamp) {
+          updateSunMoonVisibility(last.timestamp);
+        } else {
+          updateSunMoonVisibility(new Date().toISOString()); // Fallback if last.timestamp is missing
+        }
+
+        if (last.temperature != null) {
+          const temperature = parseFloat(last.temperature);
+          if (!isNaN(temperature)) {
+            updateTemperatureEffects(temperature);
+          }
+        }
+
+        if (last.humidity != null) {
+          const humidity = parseFloat(last.humidity);
+          if (!isNaN(humidity)) {
+            updateHumidityEffects(humidity);
+          }
+        }
+
+        // Determine isDaytime for bird state
+        let currentHourForBird;
+        if (last.timestamp) {
+            const timePart = last.timestamp.includes('T') ? last.timestamp.split('T')[1] : last.timestamp.split(' ')[1];
+            if (timePart) currentHourForBird = parseInt(timePart.substr(0, 2));
+            else currentHourForBird = new Date().getHours(); // Fallback
+        } else {
+            currentHourForBird = new Date().getHours(); // Fallback
+        }
+        const isDaytimeForBird = (currentHourForBird >= 6 && currentHourForBird < 18);
+        
+        // Safely parse temperature and humidity, providing defaults if null/undefined
+        const tempForBird = (last.temperature != null) ? parseFloat(last.temperature) : 15; // Default to 15°C
+        const humForBird = (last.humidity != null) ? parseFloat(last.humidity) : 50; // Default to 50%
+
+        if (!isNaN(tempForBird) && !isNaN(humForBird)) {
+            updateBirdState(tempForBird, humForBird, isDaytimeForBird);
+        }
+
+      } else { // Handle case where there's no data yet
         document.getElementById("temp").textContent = '--';
         document.getElementById("hum").textContent = '--';
         document.getElementById("time-value").textContent = '--';
+        // Initial bird state before data: use browser time, assume moderate temp/humidity
+        const currentHour = new Date().getHours();
+        const isDay = (currentHour >= 6 && currentHour < 18);
+        updateBirdState(15, 50, isDay); // Assume 15°C, 50% humidity
       }
     });
   </script>
